@@ -1,0 +1,35 @@
+# Build
+bin/
+obj/
+out/
+
+# IDE
+.idea/
+.vs/
+*.user
+*.suo
+
+# .NET
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# User secrets
+appsettings.*.local.json
+*.user
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+.docker/
+
+# Test & coverage
+TestResults/
+coverage/
+*.coverage
+*.coveragexml
+
+# Migrations (optional - some teams commit these)
+# **/Migrations/
