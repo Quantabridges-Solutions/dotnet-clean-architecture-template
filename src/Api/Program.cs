@@ -1,9 +1,11 @@
+using System.Threading.RateLimiting;
 using CleanArchitecture.Api.Filters;
 using CleanArchitecture.Api.Middleware;
 using CleanArchitecture.Application;
 using CleanArchitecture.Infrastructure;
 using HealthChecks.UI.Client;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.AspNetCore.RateLimiting;
 using Scalar.AspNetCore;
 using Serilog;
 
@@ -29,6 +31,18 @@ builder.Services.AddSwaggerGen(options =>
 });
 builder.Services.AddControllers(options => options.Filters.Add<ValidationExceptionFilter>());
 
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddFixedWindowLimiter("api", limiter =>
+    {
+        limiter.PermitLimit = 100;
+        limiter.Window = TimeSpan.FromMinutes(1);
+        limiter.QueueLimit = 0;
+        limiter.AutoReplenishment = true;
+    });
+});
+
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
     ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
 var redisConnection = builder.Configuration.GetConnectionString("Redis")
@@ -52,11 +66,20 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-app.MapHealthChecks("/health", new HealthCheckOptions
+app.UseRateLimiter();
+
+app.MapHealthChecks("/health/live", new HealthCheckOptions
 {
+    Predicate = _ => false,
     ResponseWriter = UIResponseWriter.WriteHealthCheckUIResponse
 });
-app.MapControllers();
+app.MapHealthChecks("/health/ready", new HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("ready"),
+    ResponseWriter = UIResponseWriter.WriteHealthCheckUIResponse
+});
+
+app.MapControllers().RequireRateLimiting("api");
 
 try
 {
